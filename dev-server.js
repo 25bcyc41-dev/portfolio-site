@@ -11,9 +11,21 @@ const PORT = 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'messages.json');
 
+// Demo credentials
+const DEMO_USERNAME = 'admin';
+const DEMO_PASSWORD = 'password123';
+
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// Helper to validate token
+function validateToken(authHeader) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return false;
+  }
+  return true;
 }
 
 // Helper to get messages
@@ -80,7 +92,7 @@ const server = http.createServer((req, res) => {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   // Handle OPTIONS request
   if (req.method === 'OPTIONS') {
@@ -91,6 +103,47 @@ const server = http.createServer((req, res) => {
 
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
+
+  // API: Authentication
+  if (pathname === '/api/auth' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+
+    req.on('end', () => {
+      try {
+        const { username, password } = JSON.parse(body);
+
+        if (!username || !password) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            error: 'Missing username or password'
+          }));
+          return;
+        }
+
+        if (username === DEMO_USERNAME && password === DEMO_PASSWORD) {
+          const token = Buffer.from(`${username}:${Date.now()}`).toString('base64');
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            message: 'Login successful ✅',
+            token: token
+          }));
+          return;
+        }
+
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'Invalid username or password'
+        }));
+      } catch (error) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Internal server error' }));
+      }
+    });
+    return;
+  }
 
   // API: Contact form
   if (pathname === '/api/contact' && req.method === 'POST') {
@@ -125,9 +178,17 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // API: Get messages
+  // API: Get messages (requires authentication)
   if (pathname === '/api/messages' && req.method === 'GET') {
     try {
+      // Check authorization
+      const authHeader = req.headers.authorization;
+      if (!validateToken(authHeader)) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+
       const messages = getMessages();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(messages));
@@ -161,6 +222,9 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`\n🚀 Server running at http://localhost:${PORT}`);
   console.log(`📁 Public files served from: ./public`);
-  console.log(`📡 API endpoints available:\n   - POST /api/contact\n   - GET /api/messages`);
+  console.log(`📡 API endpoints available:`);
+  console.log(`   - POST /api/auth        (login with admin/password123)`);
+  console.log(`   - POST /api/contact     (submit messages)`);
+  console.log(`   - GET /api/messages     (view all messages - requires auth)`);
   console.log(`💾 Messages stored in: ./data/messages.json\n`);
 });

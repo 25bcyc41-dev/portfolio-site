@@ -3,6 +3,16 @@
   "buildCommand": "npm run build",
   "public": true,
   "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/public/:path*"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

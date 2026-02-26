@@ -1,6 +1,6 @@
 // Demo credentials
 const DEMO_USERNAME = 'admin';
-const DEMO_PASSWORD = 'demo123';
+const DEMO_PASSWORD = 'password123';
 
 // API handler
 export default function handler(req, res) {

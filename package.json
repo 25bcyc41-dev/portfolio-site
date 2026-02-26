@@ -5,9 +5,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "node --watch api/contact.js",
-    "build": "echo 'Build complete'",
-    "start": "node api/contact.js"
+    "dev": "node dev-server.js",
+    "build": "echo 'Build complete'"
   },
   "keywords": [
     "portfolio",
