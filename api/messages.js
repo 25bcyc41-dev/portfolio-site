@@ -27,6 +27,7 @@ function getMessages() {
     return JSON.parse(data || '[]');
   } catch (error) {
     console.error('Error reading messages:', error.message);
+    console.warn('[Vercel] Using empty messages array - data persistence may not work on Vercel without a database.');
     return [];
   }
 }

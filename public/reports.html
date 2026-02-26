@@ -391,9 +391,8 @@
   </div>
 
   <script>
-    const API_URL = window.location.origin === 'http://localhost:3000'
-      ? 'http://localhost:3000'
-      : window.location.origin;
+    // API URL - works on localhost and Vercel
+    const API_URL = window.location.origin;
 
     // Check if user is logged in
     window.addEventListener('load', () => {

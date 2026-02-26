@@ -46,11 +46,12 @@ function saveMessage(name, email, message) {
     };
     messages.push(newMessage);
 
-    // Try to write to file if possible
+    // Try to write to file if possible (may fail on Vercel's ephemeral filesystem)
     try {
       fs.writeFileSync(dbPath, JSON.stringify(messages, null, 2));
+      console.log('[File] Message saved to local storage');
     } catch (writeError) {
-      console.warn('Note: Could not persist to file system (expected on serverless). Message still processed.');
+      console.warn('[Vercel] Could not persist to file system - using in-memory storage. Deploy with database for persistence.');
     }
 
     return newMessage;

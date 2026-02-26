@@ -1,8 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // Determine API URL
-  const API_URL = window.location.origin === 'http://localhost:3000'
-    ? 'http://localhost:3000'
-    : '';
+  // Determine API URL - works on localhost and Vercel
+  const API_URL = window.location.origin;
 
   /* ===== Typing Effect ===== */
   const text = "Student • Web Developer • Creator";
