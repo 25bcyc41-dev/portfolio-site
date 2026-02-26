@@ -56,7 +56,7 @@ function saveMessage(name, email, message) {
   }
   
   return newMessage;
-}}
+}
 
 // API handler
 export default function handler(req, res) {
