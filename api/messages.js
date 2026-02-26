@@ -11,9 +11,10 @@ function validateToken(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return false;
   }
-  // Token format: Bearer <base64>
-  // In production, use JWT validation
-  return true;
+  // Token format: Bearer <base64(username:password)>
+  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+  const expectedToken = Buffer.from('admin:password123').toString('base64');
+  return token === expectedToken;
 }
 
 // Get all messages
