@@ -15,7 +15,7 @@ function getMessages() {
     const data = fs.readFileSync(dbPath, 'utf-8');
     return JSON.parse(data || '[]');
   } catch (error) {
-    console.error('Error reading messages:', error);
+    console.error('Error reading messages:', error.message);
     return [];
   }
 }
@@ -35,10 +35,14 @@ export default function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const messages = getMessages();
-      return res.status(200).json(messages);
+      return res.status(200).json({
+        success: true,
+        count: messages.length,
+        data: messages
+      });
     } catch (error) {
-      console.error('Error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      console.error('Error:', error.message);
+      return res.status(500).json({ error: 'Failed to retrieve messages' });
     }
   }
 

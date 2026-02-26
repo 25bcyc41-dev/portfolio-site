@@ -1,4 +1,9 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // Determine API URL
+  const API_URL = window.location.origin === 'http://localhost:3000'
+    ? 'http://localhost:3000'
+    : '';
+
   /* ===== Typing Effect ===== */
   const text = "Student • Web Developer • Creator";
   let i = 0;
@@ -40,11 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const message = document.getElementById("message").value;
 
     try {
-      const apiUrl = window.location.origin === 'http://localhost:3000'
-        ? 'http://localhost:3000/api/contact'
-        : '/api/contact';
-
-      const res = await fetch(apiUrl, {
+      const res = await fetch(`${API_URL}/api/contact`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, message })

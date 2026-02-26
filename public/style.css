@@ -120,11 +120,26 @@ textarea {
   font-weight: 600;
   cursor: pointer;
   transition: 0.3s;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  display: inline-block;
 }
 
 .btn:hover {
   transform: scale(1.05);
   box-shadow: 0 0 15px white;
+}
+
+.btn-secondary {
+  background: #667eea;
+  color: white;
+  margin-top: 10px;
+}
+
+.btn-secondary:hover {
+  background: #5568d3;
+  box-shadow: 0 0 15px #667eea;
 }
 
 /* SUCCESS TEXT */

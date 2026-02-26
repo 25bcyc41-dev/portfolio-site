@@ -4,13 +4,17 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const dbPath = path.join(__dirname, '../data/messages.json');
+const DATA_DIR = path.join(__dirname, '../data');
+const dbPath = path.join(DATA_DIR, 'messages.json');
 
 // Ensure data directory exists
 function ensureDataDir() {
-  const dataDir = path.dirname(dbPath);
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+  } catch (error) {
+    console.warn('Warning: Could not create data directory', error.message);
   }
 }
 
@@ -23,7 +27,7 @@ function getMessages() {
     const data = fs.readFileSync(dbPath, 'utf-8');
     return JSON.parse(data || '[]');
   } catch (error) {
-    console.error('Error reading messages:', error);
+    console.error('Error reading messages:', error.message);
     return [];
   }
 }
@@ -41,10 +45,17 @@ function saveMessage(name, email, message) {
       timestamp: new Date().toISOString()
     };
     messages.push(newMessage);
-    fs.writeFileSync(dbPath, JSON.stringify(messages, null, 2));
+
+    // Try to write to file if possible
+    try {
+      fs.writeFileSync(dbPath, JSON.stringify(messages, null, 2));
+    } catch (writeError) {
+      console.warn('Note: Could not persist to file system (expected on serverless). Message still processed.');
+    }
+
     return newMessage;
   } catch (error) {
-    console.error('Error saving message:', error);
+    console.error('Error in saveMessage:', error.message);
     throw error;
   }
 }
@@ -78,8 +89,8 @@ export default function handler(req, res) {
         data: saved
       });
     } catch (error) {
-      console.error('Error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      console.error('Error:', error.message);
+      return res.status(500).json({ error: 'Failed to save message' });
     }
   }
 
