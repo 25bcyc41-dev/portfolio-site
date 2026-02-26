@@ -4,67 +4,59 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.join(__dirname, '../data');
-const dbPath = path.join(DATA_DIR, 'messages.json');
+const dbPath = path.join(__dirname, '../data/messages.json');
 
-// Ensure data directory exists
-function ensureDataDir() {
+// In-memory store for new messages (during deployment)
+let messagesCache = null;
+
+// Initialize cache from stored JSON file
+function initializeCache() {
+  if (messagesCache !== null) return messagesCache;
+  
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (fs.existsSync(dbPath)) {
+      const data = fs.readFileSync(dbPath, 'utf-8');
+      const parsed = JSON.parse(data || '[]');
+      messagesCache = Array.isArray(parsed) ? parsed : [];
+    } else {
+      messagesCache = [];
     }
   } catch (error) {
-    console.warn('Warning: Could not create data directory', error.message);
+    console.error('Error loading messages:', error.message);
+    messagesCache = [];
   }
+  return messagesCache;
 }
 
 // Get all messages
 function getMessages() {
-  try {
-    if (!fs.existsSync(dbPath)) {
-      console.log('[Init] Creating new messages.json file');
-      ensureDataDir();
-      fs.writeFileSync(dbPath, JSON.stringify([], null, 2));
-      return [];
-    }
-    const data = fs.readFileSync(dbPath, 'utf-8');
-    const parsed = JSON.parse(data || '[]');
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    console.error('Error reading messages:', error.message);
-    return [];
-  }
+  return initializeCache();
 }
 
-// Save message
+// Save message (in-memory + attempt to write to file)
 function saveMessage(name, email, message) {
+  const messages = getMessages();
+  const newMessage = {
+    id: messages.length > 0 ? Math.max(...messages.map(m => m.id)) + 1 : 1,
+    name: name.trim(),
+    email: email.trim(),
+    message: message.trim(),
+    timestamp: new Date().toISOString()
+  };
+  
+  messages.push(newMessage);
+  messagesCache = messages;
+  
+  // Try to write to file (may fail on Vercel but works locally)
   try {
-    ensureDataDir();
-    const messages = getMessages();
-    const newMessage = {
-      id: (messages.length > 0 ? Math.max(...messages.map(m => m.id)) : 0) + 1,
-      name,
-      email,
-      message,
-      timestamp: new Date().toISOString()
-    };
-    messages.push(newMessage);
-
-    // Write to file
-    try {
-      fs.writeFileSync(dbPath, JSON.stringify(messages, null, 2), 'utf-8');
-      console.log(`[Success] Message ${newMessage.id} saved to ${dbPath}`);
-    } catch (writeError) {
-      console.error('[Error] Failed to write to file:', writeError.message);
-      console.warn('[Note] On Vercel, use a database instead of file storage');
-    }
-
-    return newMessage;
-  } catch (error) {
-    console.error('Error in saveMessage:', error.message);
-    throw error;
+    fs.writeFileSync(dbPath, JSON.stringify(messages, null, 2), 'utf-8');
+    console.log(`[Saved] Message #${newMessage.id} persisted to file`);
+  } catch (writeError) {
+    console.warn(`[Cache] Message #${newMessage.id} saved in memory (not persisted to file)`);
   }
-}
+  
+  return newMessage;
+}}
 
 // API handler
 export default function handler(req, res) {
@@ -82,21 +74,18 @@ export default function handler(req, res) {
     try {
       const { name, email, message } = req.body;
 
-      // Validate input
       if (!name || !email || !message) {
-        return res.status(400).json({
-          error: 'Missing required fields: name, email, message'
-        });
+        return res.status(400).json({ error: 'Missing required fields' });
       }
 
       const saved = saveMessage(name, email, message);
       return res.status(200).json({
+        success: true,
         message: 'Message saved successfully ✅',
         data: saved
       });
     } catch (error) {
-      console.error('Error:', error.message);
-      return res.status(500).json({ error: 'Failed to save message' });
+      return res.status(500).json({ error: error.message || 'Failed to save message' });
     }
   }
 
@@ -105,7 +94,6 @@ export default function handler(req, res) {
       const messages = getMessages();
       return res.status(200).json(messages);
     } catch (error) {
-      console.error('Error:', error.message);
       return res.status(500).json({ error: 'Failed to retrieve messages' });
     }
   }

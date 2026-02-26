@@ -6,30 +6,41 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const dbPath = path.join(__dirname, '../data/messages.json');
 
-// Helper to validate token
+// In-memory store for messages (shared across requests in same deployment)
+let messagesCache = null;
+
+// Validate authentication token
 function validateToken(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return false;
   }
-  // Token format: Bearer <base64(username:password)>
-  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+  const token = authHeader.substring(7);
   const expectedToken = Buffer.from('admin:password123').toString('base64');
   return token === expectedToken;
 }
 
+// Initialize cache from stored JSON file
+function initializeCache() {
+  if (messagesCache !== null) return messagesCache;
+  
+  try {
+    if (fs.existsSync(dbPath)) {
+      const data = fs.readFileSync(dbPath, 'utf-8');
+      const parsed = JSON.parse(data || '[]');
+      messagesCache = Array.isArray(parsed) ? parsed : [];
+    } else {
+      messagesCache = [];
+    }
+  } catch (error) {
+    console.error('Error loading messages:', error.message);
+    messagesCache = [];
+  }
+  return messagesCache;
+}
+
 // Get all messages
 function getMessages() {
-  try {
-    if (!fs.existsSync(dbPath)) {
-      return [];
-    }
-    const data = fs.readFileSync(dbPath, 'utf-8');
-    return JSON.parse(data || '[]');
-  } catch (error) {
-    console.error('Error reading messages:', error.message);
-    console.warn('[Vercel] Using empty messages array - data persistence may not work on Vercel without a database.');
-    return [];
-  }
+  return initializeCache();
 }
 
 // API handler
