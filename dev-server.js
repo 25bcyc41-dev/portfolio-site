@@ -25,7 +25,10 @@ function validateToken(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return false;
   }
-  return true;
+  // Token format: Bearer <base64(username:password)>
+  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+  const expectedToken = Buffer.from('admin:password123').toString('base64');
+  return token === expectedToken;
 }
 
 // Helper to get messages
@@ -124,7 +127,7 @@ const server = http.createServer((req, res) => {
         }
 
         if (username === DEMO_USERNAME && password === DEMO_PASSWORD) {
-          const token = Buffer.from(`${username}:${Date.now()}`).toString('base64');
+          const token = Buffer.from(`${username}:${password}`).toString('base64');
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
             message: 'Login successful ✅',
