@@ -22,10 +22,14 @@ function ensureDataDir() {
 function getMessages() {
   try {
     if (!fs.existsSync(dbPath)) {
+      console.log('[Init] Creating new messages.json file');
+      ensureDataDir();
+      fs.writeFileSync(dbPath, JSON.stringify([], null, 2));
       return [];
     }
     const data = fs.readFileSync(dbPath, 'utf-8');
-    return JSON.parse(data || '[]');
+    const parsed = JSON.parse(data || '[]');
+    return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     console.error('Error reading messages:', error.message);
     return [];
@@ -38,7 +42,7 @@ function saveMessage(name, email, message) {
     ensureDataDir();
     const messages = getMessages();
     const newMessage = {
-      id: messages.length + 1,
+      id: (messages.length > 0 ? Math.max(...messages.map(m => m.id)) : 0) + 1,
       name,
       email,
       message,
@@ -46,12 +50,13 @@ function saveMessage(name, email, message) {
     };
     messages.push(newMessage);
 
-    // Try to write to file if possible (may fail on Vercel's ephemeral filesystem)
+    // Write to file
     try {
-      fs.writeFileSync(dbPath, JSON.stringify(messages, null, 2));
-      console.log('[File] Message saved to local storage');
+      fs.writeFileSync(dbPath, JSON.stringify(messages, null, 2), 'utf-8');
+      console.log(`[Success] Message ${newMessage.id} saved to ${dbPath}`);
     } catch (writeError) {
-      console.warn('[Vercel] Could not persist to file system - using in-memory storage. Deploy with database for persistence.');
+      console.error('[Error] Failed to write to file:', writeError.message);
+      console.warn('[Note] On Vercel, use a database instead of file storage');
     }
 
     return newMessage;
@@ -92,6 +97,16 @@ export default function handler(req, res) {
     } catch (error) {
       console.error('Error:', error.message);
       return res.status(500).json({ error: 'Failed to save message' });
+    }
+  }
+
+  if (req.method === 'GET') {
+    try {
+      const messages = getMessages();
+      return res.status(200).json(messages);
+    } catch (error) {
+      console.error('Error:', error.message);
+      return res.status(500).json({ error: 'Failed to retrieve messages' });
     }
   }
 
