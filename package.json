@@ -1,0 +1,22 @@
+{
+  "name": "portfolio-project",
+  "version": "1.0.0",
+  "description": "Mathew Roy's portfolio website",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node --watch api/contact.js",
+    "build": "echo 'Build complete'",
+    "start": "node api/contact.js"
+  },
+  "keywords": [
+    "portfolio",
+    "web-development",
+    "serverless"
+  ],
+  "author": "Mathew Roy",
+  "license": "MIT",
+  "engines": {
+    "node": "18.x"
+  }
+}
