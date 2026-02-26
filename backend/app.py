@@ -5,9 +5,7 @@ import sqlite3
 app = Flask(__name__)
 CORS(app)
 
-# -----------------------------------
-# DATABASE SETUP (runs when app starts)
-# -----------------------------------
+# ---------------- DATABASE ----------------
 def init_db():
     conn = sqlite3.connect("messages.db")
     cursor = conn.cursor()
@@ -24,36 +22,23 @@ def init_db():
     conn.commit()
     conn.close()
 
-# initialize database
 init_db()
 
-
-# -----------------------------------
-# HOME ROUTE
-# -----------------------------------
+# ---------------- HOME ----------------
 @app.route("/")
 def home():
     return "Portfolio Backend Running ✅"
 
 
-# -----------------------------------
-# CONTACT FORM API
-# -----------------------------------
+# ---------------- CONTACT ROUTE ----------------
 @app.route("/contact", methods=["POST"])
 def contact():
     data = request.get_json()
-
-    if not data:
-        return jsonify({"message": "No data received"}), 400
 
     name = data.get("name")
     email = data.get("email")
     message = data.get("message")
 
-    if not name or not email:
-        return jsonify({"message": "Name and Email required"}), 400
-
-    # Save to database
     conn = sqlite3.connect("messages.db")
     cursor = conn.cursor()
 
@@ -65,17 +50,23 @@ def contact():
     conn.commit()
     conn.close()
 
-    print("\n📩 New Message Saved:")
-    print(name, email, message)
-
-    return jsonify({
-        "status": "success",
-        "message": f"Thanks {name}! Message received ✅"
-    })
+    return jsonify({"message": "Message saved successfully ✅"})
 
 
-# -----------------------------------
-# RUN SERVER
-# -----------------------------------
+# ---------------- VIEW MESSAGES ROUTE (NEW) ----------------
+@app.route("/messages")
+def view_messages():
+    conn = sqlite3.connect("messages.db")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM contact_messages")
+    rows = cursor.fetchall()
+
+    conn.close()
+
+    return jsonify(rows)
+
+
+# ---------------- RUN SERVER ----------------
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(debug=True)

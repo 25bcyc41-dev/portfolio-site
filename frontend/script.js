@@ -38,15 +38,21 @@ document.addEventListener("DOMContentLoaded", () => {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const name = name.value;
-    const email = email.value;
-    const message = message.value;
+    // ✅ FIRST get elements
+    const nameInput = document.getElementById("name");
+    const emailInput = document.getElementById("email");
+    const messageInput = document.getElementById("message");
+
+    // ✅ THEN get values
+    const name = nameInput.value;
+    const email = emailInput.value;
+    const message = messageInput.value;
 
     try {
       const res = await fetch("http://127.0.0.1:5000/contact", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({name,email,message})
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, message })
       });
 
       const data = await res.json();
@@ -55,9 +61,10 @@ document.addEventListener("DOMContentLoaded", () => {
       successMsg.style.color = "lightgreen";
       form.reset();
 
-    } catch {
+    } catch (error) {
       successMsg.textContent = "Server Error!";
       successMsg.style.color = "red";
+      console.error(error);
     }
   });
 
