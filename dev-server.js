@@ -3,21 +3,28 @@ import fs from 'fs';
 import path from 'path';
 import url from 'url';
 import { fileURLToPath } from 'url';
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config({ path: '.env.local' });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = 3000;
-const DATA_DIR = path.join(__dirname, 'data');
-const DB_FILE = path.join(DATA_DIR, 'messages.json');
 
-// Demo credentials
-const DEMO_USERNAME = 'admin';
-const DEMO_PASSWORD = 'password123';
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+let supabase = null;
+
+if (supabaseUrl && supabaseAnonKey) {
+  supabase = createClient(supabaseUrl, supabaseAnonKey);
+  console.log('✅ Connected to Supabase');
+} else {
+  console.warn('⚠️ Supabase credentials not found, messages will not be saved');
 }
 
 // Helper to validate token
@@ -32,30 +39,46 @@ function validateToken(authHeader) {
 }
 
 // Helper to get messages
-function getMessages() {
+async function getMessages() {
+  if (!supabase) return [];
+  
   try {
-    if (!fs.existsSync(DB_FILE)) return [];
-    const data = fs.readFileSync(DB_FILE, 'utf-8');
-    return JSON.parse(data || '[]');
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .order('timestamp', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
   } catch (error) {
-    console.error('Error reading messages:', error.message);
+    console.error('Error fetching messages:', error.message);
     return [];
   }
 }
 
 // Helper to save message
-function saveMessage(name, email, message) {
+async function saveMessage(name, email, message) {
+  if (!supabase) {
+    throw new Error('Supabase not connected');
+  }
+  
   try {
-    const messages = getMessages();
-    const newMessage = {
-      id: messages.length + 1,
-      name,
-      email,
-      message,
-      timestamp: new Date().toISOString()
-    };
-    messages.push(newMessage);
-    fs.writeFileSync(DB_FILE, JSON.stringify(messages, null, 2));
+    const { data, error } = await supabase
+      .from('messages')
+      .insert([
+        {
+          name: name.trim(),
+          email: email.trim(),
+          message: message.trim(),
+          timestamp: new Date().toISOString()
+        }
+      ])
+      .select();
+    
+    if (error) throw error;
+    
+    const newMessage = data[0];
+    console.log(`[Saved] Message #${newMessage.id} persisted to Supabase`);
     return newMessage;
   } catch (error) {
     console.error('Error saving message:', error.message);
@@ -155,7 +178,7 @@ const server = http.createServer((req, res) => {
       body += chunk.toString();
     });
 
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const { name, email, message } = JSON.parse(body);
 
@@ -167,7 +190,7 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        const saved = saveMessage(name, email, message);
+        const saved = await saveMessage(name, email, message);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           message: 'Message saved successfully ✅',
@@ -192,7 +215,7 @@ const server = http.createServer((req, res) => {
         return;
       }
 
-      const messages = getMessages();
+      const messages = await getMessages();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(messages));
     } catch (error) {
@@ -200,6 +223,7 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ error: 'Internal server error' }));
     }
     return;
+  }
   }
 
   // Serve static files from public directory
