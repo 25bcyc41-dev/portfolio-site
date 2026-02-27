@@ -84,6 +84,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Content-Type', 'application/json');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -105,7 +106,11 @@ export default async function handler(req, res) {
         data: saved
       });
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to save message' });
+      console.error('Handler error:', error);
+      return res.status(500).json({ 
+        error: error.message || 'Failed to save message',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 
@@ -114,6 +119,7 @@ export default async function handler(req, res) {
       const messages = await getMessages();
       return res.status(200).json(messages);
     } catch (error) {
+      console.error('Handler error:', error);
       return res.status(500).json({ error: 'Failed to retrieve messages' });
     }
   }
