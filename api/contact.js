@@ -29,6 +29,12 @@ async function getMessages() {
 // Save message to Supabase
 async function saveMessage(name, email, message) {
   try {
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
+    }
+
+    console.log('Attempting to insert message...');
+    
     const { data, error } = await supabase
       .from('messages')
       .insert([
@@ -41,7 +47,10 @@ async function saveMessage(name, email, message) {
       ])
       .select();
     
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase insert error:', error);
+      throw new Error(`Insert failed: ${error.message}`);
+    }
     
     const newMessage = data[0];
     console.log(`[Saved] Message #${newMessage.id} persisted to Supabase`);

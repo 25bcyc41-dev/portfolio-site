@@ -38,6 +38,10 @@ function validateToken(authHeader) {
   return token === expectedToken;
 }
 
+// Demo credentials
+const DEMO_USERNAME = 'admin';
+const DEMO_PASSWORD = 'password123';
+
 // Helper to get messages
 async function getMessages() {
   if (!supabase) return [];
@@ -206,24 +210,25 @@ const server = http.createServer((req, res) => {
 
   // API: Get messages (requires authentication)
   if (pathname === '/api/messages' && req.method === 'GET') {
-    try {
-      // Check authorization
-      const authHeader = req.headers.authorization;
-      if (!validateToken(authHeader)) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Unauthorized' }));
-        return;
-      }
+    (async () => {
+      try {
+        // Check authorization
+        const authHeader = req.headers.authorization;
+        if (!validateToken(authHeader)) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Unauthorized' }));
+          return;
+        }
 
-      const messages = await getMessages();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(messages));
-    } catch (error) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Internal server error' }));
-    }
+        const messages = await getMessages();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(messages));
+      } catch (error) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Internal server error' }));
+      }
+    })();
     return;
-  }
   }
 
   // Serve static files from public directory
