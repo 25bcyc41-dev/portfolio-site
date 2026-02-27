@@ -6,23 +6,28 @@ if (!mongoUri) {
   throw new Error('MONGODB_URI environment variable is not set');
 }
 
-const mongoClient = new MongoClient(mongoUri);
-let messagesCollection = null;
+let cachedClient = null;
+let cachedDb = null;
 
-// Initialize MongoDB connection
-async function initializeMongoDB() {
-  if (messagesCollection) return messagesCollection;
+// Reuse MongoDB connection across requests (important for serverless)
+async function connectToDatabase() {
+  if (cachedClient && cachedDb) {
+    return { client: cachedClient, db: cachedDb };
+  }
 
   try {
-    await mongoClient.connect();
-    const db = mongoClient.db('portfolio');
-    messagesCollection = db.collection('messages');
+    const client = new MongoClient(mongoUri, {
+      maxPoolSize: 10,
+    });
     
-    // Create index on timestamp for faster queries
-    await messagesCollection.createIndex({ timestamp: -1 });
+    await client.connect();
+    const db = client.db('portfolio');
+    
+    cachedClient = client;
+    cachedDb = db;
     
     console.log('✅ Connected to MongoDB');
-    return messagesCollection;
+    return { client, db };
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
     throw error;
@@ -32,7 +37,9 @@ async function initializeMongoDB() {
 // Get all messages from MongoDB
 async function getMessages() {
   try {
-    const collection = await initializeMongoDB();
+    const { db } = await connectToDatabase();
+    const collection = db.collection('messages');
+    
     const messages = await collection
       .find({})
       .sort({ timestamp: -1 })
@@ -48,13 +55,11 @@ async function getMessages() {
 // Save message to MongoDB
 async function saveMessage(name, email, message) {
   try {
-    if (!mongoClient) {
-      throw new Error('MongoDB client not initialized');
-    }
-
     console.log('Attempting to insert message...');
     
-    const collection = await initializeMongoDB();
+    const { db } = await connectToDatabase();
+    const collection = db.collection('messages');
+    
     const result = await collection.insertOne({
       name: name.trim(),
       email: email.trim(),

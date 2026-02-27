@@ -16,22 +16,28 @@ const PORT = 3000;
 
 // Initialize MongoDB client
 const mongoUri = process.env.MONGODB_URI;
-const mongoClient = new MongoClient(mongoUri);
-let messagesCollection = null;
 
-async function initializeMongoDB() {
-  if (messagesCollection) return messagesCollection;
+let cachedClient = null;
+let cachedDb = null;
+
+async function connectToDatabase() {
+  if (cachedClient && cachedDb) {
+    return { client: cachedClient, db: cachedDb };
+  }
   
   try {
-    await mongoClient.connect();
-    const db = mongoClient.db('portfolio');
-    messagesCollection = db.collection('messages');
+    const client = new MongoClient(mongoUri, {
+      maxPoolSize: 10,
+    });
     
-    // Create index on timestamp for faster queries
-    await messagesCollection.createIndex({ timestamp: -1 });
+    await client.connect();
+    const db = client.db('portfolio');
+    
+    cachedClient = client;
+    cachedDb = db;
     
     console.log('✅ Connected to MongoDB');
-    return messagesCollection;
+    return { client, db };
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
     throw error;
@@ -56,7 +62,9 @@ const DEMO_PASSWORD = 'password123';
 // Helper to get messages
 async function getMessages() {
   try {
-    const collection = await initializeMongoDB();
+    const { db } = await connectToDatabase();
+    const collection = db.collection('messages');
+    
     const messages = await collection
       .find({})
       .sort({ timestamp: -1 })
@@ -72,7 +80,9 @@ async function getMessages() {
 // Helper to save message
 async function saveMessage(name, email, message) {
   try {
-    const collection = await initializeMongoDB();
+    const { db } = await connectToDatabase();
+    const collection = db.collection('messages');
+    
     const result = await collection.insertOne({
       name: name.trim(),
       email: email.trim(),
