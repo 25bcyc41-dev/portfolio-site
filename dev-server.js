@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import url from 'url';
 import { fileURLToPath } from 'url';
-import { createClient } from '@supabase/supabase-js';
+import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -14,17 +14,28 @@ const __dirname = path.dirname(__filename);
 
 const PORT = 3000;
 
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Initialize MongoDB client
+const mongoUri = process.env.MONGODB_URI;
+const mongoClient = new MongoClient(mongoUri);
+let messagesCollection = null;
 
-let supabase = null;
-
-if (supabaseUrl && supabaseAnonKey) {
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
-  console.log('✅ Connected to Supabase');
-} else {
-  console.warn('⚠️ Supabase credentials not found, messages will not be saved');
+async function initializeMongoDB() {
+  if (messagesCollection) return messagesCollection;
+  
+  try {
+    await mongoClient.connect();
+    const db = mongoClient.db('portfolio');
+    messagesCollection = db.collection('messages');
+    
+    // Create index on timestamp for faster queries
+    await messagesCollection.createIndex({ timestamp: -1 });
+    
+    console.log('✅ Connected to MongoDB');
+    return messagesCollection;
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error.message);
+    throw error;
+  }
 }
 
 // Helper to validate token
@@ -44,16 +55,14 @@ const DEMO_PASSWORD = 'password123';
 
 // Helper to get messages
 async function getMessages() {
-  if (!supabase) return [];
-  
   try {
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .order('timestamp', { ascending: false });
+    const collection = await initializeMongoDB();
+    const messages = await collection
+      .find({})
+      .sort({ timestamp: -1 })
+      .toArray();
     
-    if (error) throw error;
-    return data || [];
+    return messages;
   } catch (error) {
     console.error('Error fetching messages:', error.message);
     return [];
@@ -62,27 +71,24 @@ async function getMessages() {
 
 // Helper to save message
 async function saveMessage(name, email, message) {
-  if (!supabase) {
-    throw new Error('Supabase not connected');
-  }
-  
   try {
-    const { data, error } = await supabase
-      .from('messages')
-      .insert([
-        {
-          name: name.trim(),
-          email: email.trim(),
-          message: message.trim(),
-          timestamp: new Date().toISOString()
-        }
-      ])
-      .select();
+    const collection = await initializeMongoDB();
+    const result = await collection.insertOne({
+      name: name.trim(),
+      email: email.trim(),
+      message: message.trim(),
+      timestamp: new Date()
+    });
     
-    if (error) throw error;
+    const newMessage = {
+      id: result.insertedId.toString(),
+      name: name.trim(),
+      email: email.trim(),
+      message: message.trim(),
+      timestamp: new Date().toISOString()
+    };
     
-    const newMessage = data[0];
-    console.log(`[Saved] Message #${newMessage.id} persisted to Supabase`);
+    console.log(`[Saved] Message stored in MongoDB`);
     return newMessage;
   } catch (error) {
     console.error('Error saving message:', error.message);

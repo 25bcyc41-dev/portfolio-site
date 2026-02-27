@@ -1,59 +1,76 @@
-import { createClient } from '@supabase/supabase-js';
+import { MongoClient } from 'mongodb';
 
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const mongoUri = process.env.MONGODB_URI;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+if (!mongoUri) {
+  throw new Error('MONGODB_URI environment variable is not set');
 }
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const mongoClient = new MongoClient(mongoUri);
+let messagesCollection = null;
 
-// Get all messages from Supabase
+// Initialize MongoDB connection
+async function initializeMongoDB() {
+  if (messagesCollection) return messagesCollection;
+
+  try {
+    await mongoClient.connect();
+    const db = mongoClient.db('portfolio');
+    messagesCollection = db.collection('messages');
+    
+    // Create index on timestamp for faster queries
+    await messagesCollection.createIndex({ timestamp: -1 });
+    
+    console.log('✅ Connected to MongoDB');
+    return messagesCollection;
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error.message);
+    throw error;
+  }
+}
+
+// Get all messages from MongoDB
 async function getMessages() {
   try {
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .order('timestamp', { ascending: false });
+    const collection = await initializeMongoDB();
+    const messages = await collection
+      .find({})
+      .sort({ timestamp: -1 })
+      .toArray();
     
-    if (error) throw error;
-    return data || [];
+    return messages;
   } catch (error) {
     console.error('Error fetching messages:', error.message);
     return [];
   }
 }
 
-// Save message to Supabase
+// Save message to MongoDB
 async function saveMessage(name, email, message) {
   try {
-    if (!supabase) {
-      throw new Error('Supabase client not initialized');
+    if (!mongoClient) {
+      throw new Error('MongoDB client not initialized');
     }
 
     console.log('Attempting to insert message...');
     
-    const { data, error } = await supabase
-      .from('messages')
-      .insert([
-        {
-          name: name.trim(),
-          email: email.trim(),
-          message: message.trim(),
-          timestamp: new Date().toISOString()
-        }
-      ])
-      .select();
+    const collection = await initializeMongoDB();
+    const result = await collection.insertOne({
+      name: name.trim(),
+      email: email.trim(),
+      message: message.trim(),
+      timestamp: new Date()
+    });
     
-    if (error) {
-      console.error('Supabase insert error:', error);
-      throw new Error(`Insert failed: ${error.message}`);
-    }
+    const newMessage = {
+      id: result.insertedId.toString(),
+      name: name.trim(),
+      email: email.trim(),
+      message: message.trim(),
+      timestamp: new Date().toISOString()
+    };
     
-    const newMessage = data[0];
-    console.log(`[Saved] Message #${newMessage.id} persisted to Supabase`);
+    console.log(`[Saved] Message stored in MongoDB`);
     return newMessage;
   } catch (error) {
     console.error('Error saving message:', error.message);
